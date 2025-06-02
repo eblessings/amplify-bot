@@ -1,15 +1,12 @@
 import socket
-from rich.console import Console
 import logging
 
 logger = logging.getLogger(__name__)
 
-console = Console()
-
-
 class SocketSender:
     """
-    Handles sending generated audio packets to the clients.
+    Listens on TCP for a client, then sends PCM audio chunks from queue_in.
+    Exits on `None` sentinel.
     """
 
     def __init__(self, stop_event, queue_in, host="0.0.0.0", port=12346):
@@ -19,18 +16,23 @@ class SocketSender:
         self.port = port
 
     def run(self):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind((self.host, self.port))
-        self.socket.listen(1)
-        logger.info("Sender waiting to be connected...")
-        self.conn, _ = self.socket.accept()
-        logger.info("sender connected")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((self.host, self.port))
+        sock.listen(1)
+        logger.info(f"SocketSender listening on {self.host}:{self.port}")
+        conn, _ = sock.accept()
+        logger.info("SocketSender: client connected")
 
         while not self.stop_event.is_set():
-            audio_chunk = self.queue_in.get()
-            self.conn.sendall(audio_chunk)
-            if isinstance(audio_chunk, bytes) and audio_chunk == b"END":
+            data = self.queue_in.get()
+            if data is None:
                 break
-        self.conn.close()
-        logger.info("Sender closed")
+            try:
+                conn.sendall(data)
+            except (BrokenPipeError, ConnectionResetError):
+                break
+
+        conn.close()
+        sock.close()
+        logger.info("SocketSender: connection closed")

@@ -1,44 +1,14 @@
-import threading
-import sounddevice as sd
-import numpy as np
+from baseHandler import BaseHandler
 
-import time
-import logging
+class LocalAudioStreamer(BaseHandler):
+    """
+    In-process loopback: moves audio from input_queue to output_queue
+    to simulate full-duplex locally. Uses `None` sentinel.
+    """
 
-logger = logging.getLogger(__name__)
+    def setup(self):
+        pass  # nothing to init
 
-
-class LocalAudioStreamer:
-    def __init__(
-        self,
-        input_queue,
-        output_queue,
-        list_play_chunk_size=512,
-    ):
-        self.list_play_chunk_size = list_play_chunk_size
-
-        self.stop_event = threading.Event()
-        self.input_queue = input_queue
-        self.output_queue = output_queue
-
-    def run(self):
-        def callback(indata, outdata, frames, time, status):
-            if self.output_queue.empty():
-                self.input_queue.put(indata.copy())
-                outdata[:] = 0 * outdata
-            else:
-                outdata[:] = self.output_queue.get()[:, np.newaxis]
-
-        logger.debug("Available devices:")
-        logger.debug(sd.query_devices())
-        with sd.Stream(
-            samplerate=16000,
-            dtype="int16",
-            channels=1,
-            callback=callback,
-            blocksize=self.list_play_chunk_size,
-        ):
-            logger.info("Starting local audio stream")
-            while not self.stop_event.is_set():
-                time.sleep(0.001)
-            print("Stopping recording")
+    def process(self, chunk):
+        # chunk may be bytes or numpy array—just forward
+        yield chunk
