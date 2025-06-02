@@ -1,0 +1,1 @@
+python s2s_pipeline.py --tts melo --mode server --device cuda --recv_host 0.0.0.0 --send_host 0.0.0.0
