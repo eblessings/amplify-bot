@@ -123,3 +123,4 @@ amplifytools.xcconfig
 *.temp
 temp/
 tmp/
+github-key
